@@ -1,15 +1,50 @@
 PROGRAM GN_CK_EOT_F9
-%COMMENT = 'Search EOAT (ID -> R[500..599])'
+%COMMENT = 'Search EOAT ID'
 %NOLOCKGROUP
 %NOPAUSE = ERROR + COMMAND + TPENABLE
 
+%ENVIRONMENT REGOPE
+%ENVIRONMENT STRNG
+%ENVIRONMENT SYSDEF
+
 CONST
 
+   -- ================================================================
+   -- INPUT
+   -- ================================================================
+
    REG_IN_ID = 402
+
+
+   -- ================================================================
+   -- EOAT DATABASE
+   --
+   -- EOAT 1
+   -- R[500] = EOAT ID
+   -- R[501] = Jaw Height
+   -- R[502] = Mounting Block
+   -- R[503] = Load OD/ID
+   -- R[504] = Unload OD/ID
+   --
+   -- EOAT 2
+   -- R[505] = EOAT ID
+   -- R[506] = Jaw Height
+   -- R[507] = Mounting Block
+   -- R[508] = Load OD/ID
+   -- R[509] = Unload OD/ID
+   --
+   -- Total: 20 EOATs
+   -- R[500] through R[599]
+   -- ================================================================
 
    DB_BASE   = 500
    DB_STRIDE = 5
    DB_ITEMS  = 20
+
+
+   -- ================================================================
+   -- OFFSETS
+   -- ================================================================
 
    OFF_ID    = 0
    OFF_JAW   = 1
@@ -17,146 +52,478 @@ CONST
    OFF_LD_ER = 3
    OFF_UN_ER = 4
 
+
+   -- ================================================================
+   -- OUTPUT REGISTERS
+   -- ================================================================
+
    REG_O_JAW = 416
    REG_O_MTG = 417
    REG_O_LD  = 418
    REG_O_UN  = 419
 
+
+   -- ================================================================
+   -- STATUS STRING REGISTER
+   -- ================================================================
+
    SR_STAT   = 42
+
 
 VAR
 
+   -- Input EOAT ID
    in_id      : INTEGER
+
+   -- Database EOAT ID
    db_id      : INTEGER
+
+   -- Database addressing
    base_reg   : INTEGER
    cur_base   : INTEGER
+
+   -- Loop
+   i          : INTEGER
+
+   -- Status variables
    status     : INTEGER
    dummy      : INTEGER
-   i          : INTEGER
+
+   -- Search flag
    found      : BOOLEAN
 
+   -- GET_REG data type flag
+   real_flag  : BOOLEAN
+
+   -- Temporary GET_REG values
    i_val      : INTEGER
    r_val      : REAL
 
+   -- EOAT data
    jaw_hgt    : REAL
    mtg_blk    : REAL
 
+   load_er    : INTEGER
+   unload_er  : INTEGER
+
+
 BEGIN
 
+   -- ================================================================
+   -- INITIALIZATION
+   -- ================================================================
+
+   in_id = 0
+   db_id = 0
+
    base_reg = 0
+   cur_base = 0
+
+   i_val = 0
+   r_val = 0.0
+
+   jaw_hgt = 0.0
+   mtg_blk = 0.0
+
+   load_er = 0
+   unload_er = 0
+
    found = FALSE
 
-   SET_STR_REG(SR_STAT,'SEARCHING',dummy)
+   SET_STR_REG(SR_STAT, 'SEARCHING', dummy)
 
-   -- Read EOAT ID
-   GET_REG(REG_IN_ID,FALSE,in_id,r_val,status)
 
-   IF (status <> 0) OR (in_id <= 0) THEN
-      WRITE(CHR(128),CHR(137))
-      WRITE('ERROR: INVALID EOAT ID',CR)
-      SET_STR_REG(SR_STAT,'INVALID',dummy)
+   -- ================================================================
+   -- REGISTER COMMENTS
+   -- ================================================================
+
+   SET_REG_CMT(REG_IN_ID, 'EOAT ID', status)
+
+   SET_REG_CMT(REG_O_JAW, 'Jaw Hgt [mm]', status)
+   SET_REG_CMT(REG_O_MTG, 'Mount Blk [mm]', status)
+   SET_REG_CMT(REG_O_LD, 'Load OD-ID', status)
+   SET_REG_CMT(REG_O_UN, 'Unload OD-ID', status)
+
+
+   -- ================================================================
+   -- READ INPUT EOAT ID
+   -- R[402]
+   --
+   -- GET_REG determines automatically whether the register contains
+   -- INTEGER or REAL.
+   -- ================================================================
+
+   GET_REG(REG_IN_ID, real_flag, in_id, r_val, status)
+
+
+   -- ================================================================
+   -- CHECK INPUT READ
+   -- ================================================================
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STAT, 'INPUT READ ERR', dummy)
+
+      WRITE('ERROR: CANNOT READ EOAT ID', CR)
+
       RETURN
+
    ENDIF
 
-   WRITE(CHR(128),CHR(137))
-   WRITE('SEARCHING EOAT ID: ',in_id,CR)
 
-   -- Search database
+   -- ================================================================
+   -- IF R[402] IS REAL, CONVERT IT TO INTEGER
+   -- ================================================================
+
+   IF real_flag THEN
+
+      in_id = TRUNC(r_val)
+
+   ENDIF
+
+
+   -- ================================================================
+   -- CHECK INPUT EOAT ID
+   -- ================================================================
+
+   IF in_id <= 0 THEN
+
+      SET_STR_REG(SR_STAT, 'INVALID ID', dummy)
+
+      WRITE('ERROR: INVALID EOAT ID', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   WRITE('SEARCHING EOAT ID: ', in_id, CR)
+
+
+   -- ================================================================
+   -- SEARCH DATABASE
+   -- ================================================================
+
    FOR i = 1 TO DB_ITEMS DO
 
       IF NOT found THEN
 
-         cur_base = DB_BASE + ((i-1)*DB_STRIDE)
+         -- -----------------------------------------------------------
+         -- Calculate current database base
+         --
+         -- i = 1 -> R[500]
+         -- i = 2 -> R[505]
+         -- i = 3 -> R[510]
+         -- ...
+         -- -----------------------------------------------------------
 
-         GET_REG(cur_base + OFF_ID,
-                 FALSE,
-                 db_id,
-                 r_val,
-                 status)
+         cur_base = DB_BASE + ((i - 1) * DB_STRIDE)
 
-         IF (status = 0) AND (db_id = in_id) THEN
+         db_id = 0
+         r_val = 0.0
+
+
+         -- -----------------------------------------------------------
+         -- READ EOAT ID
+         -- -----------------------------------------------------------
+
+         GET_REG(cur_base + OFF_ID, real_flag, db_id, r_val, status)
+
+
+         -- -----------------------------------------------------------
+         -- CHECK DATABASE READ
+         -- -----------------------------------------------------------
+
+         IF status <> 0 THEN
+
+            SET_STR_REG(SR_STAT, 'DB READ ERR', dummy)
+
+            WRITE('ERROR: DATABASE READ ERROR', CR)
+
+            RETURN
+
+         ENDIF
+
+
+         -- -----------------------------------------------------------
+         -- IF DATABASE ID IS REAL, CONVERT TO INTEGER
+         -- -----------------------------------------------------------
+
+         IF real_flag THEN
+
+            db_id = TRUNC(r_val)
+
+         ENDIF
+
+
+         -- -----------------------------------------------------------
+         -- COMPARE ID
+         -- -----------------------------------------------------------
+
+         IF db_id = in_id THEN
+
             base_reg = cur_base
+
             found = TRUE
+
          ENDIF
 
       ENDIF
 
    ENDFOR
 
+
+   -- ================================================================
+   -- CHECK SEARCH RESULT
+   -- ================================================================
+
    IF NOT found THEN
-      WRITE('ERROR: EOAT NOT FOUND',CR)
-      SET_STR_REG(SR_STAT,'NOT_FOUND',dummy)
+
+      SET_STR_REG(SR_STAT, 'NOT FOUND', dummy)
+
+      WRITE('ERROR: EOAT NOT FOUND', CR)
+
       RETURN
+
    ENDIF
 
-   WRITE('MATCH FOUND AT R[',base_reg,']',CR)
 
-   -- Jaw Height (REAL)
-   GET_REG(base_reg + OFF_JAW,
-           TRUE,
-           i_val,
-           jaw_hgt,
-           status)
+   WRITE('MATCH FOUND AT R[', base_reg, ']', CR)
+
+
+   -- ================================================================
+   -- READ JAW HEIGHT
+   --
+   -- Expected REAL
+   -- Example R[501] = 125.5
+   -- ================================================================
+
+   i_val = 0
+   r_val = 0.0
+
+   GET_REG(base_reg + OFF_JAW, real_flag, i_val, r_val, status)
+
 
    IF status <> 0 THEN
-      SET_STR_REG(SR_STAT,'READ_ERR',dummy)
+
+      SET_STR_REG(SR_STAT, 'JAW READ ERR', dummy)
+
+      WRITE('ERROR: JAW HEIGHT READ ERROR', CR)
+
       RETURN
+
    ENDIF
 
-   SET_REAL_REG(REG_O_JAW,jaw_hgt,status)
 
-   -- Mounting Block (REAL)
-   GET_REG(base_reg + OFF_MTG,
-           TRUE,
-           i_val,
-           mtg_blk,
-           status)
+   -- ================================================================
+   -- GET CORRECT VALUE DEPENDING ON REGISTER TYPE
+   -- ================================================================
+
+   IF real_flag THEN
+
+      jaw_hgt = r_val
+
+   ELSE
+
+      jaw_hgt = i_val
+
+   ENDIF
+
+
+   -- ================================================================
+   -- READ MOUNTING BLOCK
+   --
+   -- Expected REAL
+   -- ================================================================
+
+   i_val = 0
+   r_val = 0.0
+
+   GET_REG(base_reg + OFF_MTG, real_flag, i_val, r_val, status)
+
 
    IF status <> 0 THEN
-      SET_STR_REG(SR_STAT,'READ_ERR',dummy)
+
+      SET_STR_REG(SR_STAT, 'MTG READ ERR', dummy)
+
+      WRITE('ERROR: MOUNT BLOCK READ ERROR', CR)
+
       RETURN
+
    ENDIF
 
-   SET_REAL_REG(REG_O_MTG,mtg_blk,status)
 
-   -- Load OD/ID (INTEGER)
-   GET_REG(base_reg + OFF_LD_ER,
-           FALSE,
-           i_val,
-           r_val,
-           status)
+   IF real_flag THEN
+
+      mtg_blk = r_val
+
+   ELSE
+
+      mtg_blk = i_val
+
+   ENDIF
+
+
+   -- ================================================================
+   -- READ LOAD OD/ID
+   --
+   -- Expected INTEGER
+   -- ================================================================
+
+   i_val = 0
+   r_val = 0.0
+
+   GET_REG(base_reg + OFF_LD_ER, real_flag, i_val, r_val, status)
+
 
    IF status <> 0 THEN
-      SET_STR_REG(SR_STAT,'READ_ERR',dummy)
+
+      SET_STR_REG(SR_STAT, 'LOAD READ ERR', dummy)
+
+      WRITE('ERROR: LOAD OD-ID READ ERROR', CR)
+
       RETURN
+
    ENDIF
 
-   SET_INT_REG(REG_O_LD,i_val,status)
 
-   -- Unload OD/ID (INTEGER)
-   GET_REG(base_reg + OFF_UN_ER,
-           FALSE,
-           i_val,
-           r_val,
-           status)
+   IF real_flag THEN
+
+      load_er = TRUNC(r_val)
+
+   ELSE
+
+      load_er = i_val
+
+   ENDIF
+
+
+   -- ================================================================
+   -- READ UNLOAD OD/ID
+   --
+   -- Expected INTEGER
+   -- ================================================================
+
+   i_val = 0
+   r_val = 0.0
+
+   GET_REG(base_reg + OFF_UN_ER, real_flag, i_val, r_val, status)
+
 
    IF status <> 0 THEN
-      SET_STR_REG(SR_STAT,'READ_ERR',dummy)
+
+      SET_STR_REG(SR_STAT, 'UNLD READ ERR', dummy)
+
+      WRITE('ERROR: UNLOAD OD-ID READ ERROR', CR)
+
       RETURN
+
    ENDIF
 
-   SET_INT_REG(REG_O_UN,i_val,status)
 
-   -- Register comments
-   SET_REG_CMT(REG_O_JAW,'Jaw Height mm',dummy)
-   SET_REG_CMT(REG_O_MTG,'Mount Block mm',dummy)
-   SET_REG_CMT(REG_O_LD,'Load OD-ID',dummy)
-   SET_REG_CMT(REG_O_UN,'Unload OD-ID',dummy)
+   IF real_flag THEN
 
-   SET_STR_REG(SR_STAT,'OK',dummy)
+      unload_er = TRUNC(r_val)
 
-   WRITE('EOAT DATA LOADED TO R[416-419]',CR)
+   ELSE
+
+      unload_er = i_val
+
+   ENDIF
+
+
+   -- ================================================================
+   -- WRITE JAW HEIGHT
+   -- R[416]
+   -- ================================================================
+
+   SET_REAL_REG(REG_O_JAW, jaw_hgt, status)
+
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STAT, 'JAW WRITE ERR', dummy)
+
+      WRITE('ERROR: R[416] WRITE ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- WRITE MOUNTING BLOCK
+   -- R[417]
+   -- ================================================================
+
+   SET_REAL_REG(REG_O_MTG, mtg_blk, status)
+
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STAT, 'MTG WRITE ERR', dummy)
+
+      WRITE('ERROR: R[417] WRITE ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- WRITE LOAD OD/ID
+   -- R[418]
+   -- ================================================================
+
+   SET_INT_REG(REG_O_LD, load_er, status)
+
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STAT, 'LOAD WRITE ERR', dummy)
+
+      WRITE('ERROR: R[418] WRITE ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- WRITE UNLOAD OD/ID
+   -- R[419]
+   -- ================================================================
+
+   SET_INT_REG(REG_O_UN, unload_er, status)
+
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STAT, 'UNLD WRITE ERR', dummy)
+
+      WRITE('ERROR: R[419] WRITE ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- SUCCESS
+   -- ================================================================
+
+   SET_STR_REG(SR_STAT, 'OK', dummy)
+
+   WRITE('EOAT DATA LOADED SUCCESSFULLY', CR)
+
+   WRITE('EOAT ID      = ', in_id, CR)
+   WRITE('BASE REG     = R[', base_reg, ']', CR)
+   WRITE('JAW HEIGHT   = ', jaw_hgt, CR)
+   WRITE('MOUNT BLOCK  = ', mtg_blk, CR)
+   WRITE('LOAD OD-ID   = ', load_er, CR)
+   WRITE('UNLOAD OD-ID = ', unload_er, CR)
 
    DELAY(3000)
+
 
 END GN_CK_EOT_F9
