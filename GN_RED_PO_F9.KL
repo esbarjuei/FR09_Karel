@@ -1,0 +1,62 @@
+PROGRAM GN_RED_PO_F9
+
+%COMMENT = 'Set Active Pallet Origin PR'
+%NOLOCKGROUP
+%NOPAUSE = ERROR + COMMAND + TPENABLE
+
+VAR
+   pal_id   : INTEGER
+   src_pr   : INTEGER
+   status   : INTEGER
+   r_val    : REAL
+   comment  : STRING[32]
+   p_data   : XYZWPR
+
+BEGIN
+
+-- --------------------------------------------------------------------
+-- READ PALLET ID FROM R[403]
+-- --------------------------------------------------------------------
+   GET_REG(403, FALSE, pal_id, r_val, status)
+
+   IF (status <> 0) THEN
+      WRITE('ERROR READING R[403]', CR)
+      RETURN
+   ENDIF
+
+-- --------------------------------------------------------------------
+-- VALIDATE PALLET ID AND DERIVE SOURCE PR
+-- --------------------------------------------------------------------
+   IF (pal_id < 1) OR (pal_id > 5) THEN
+      WRITE('INVALID PALLET ID:', pal_id, CR)
+      RETURN
+   ENDIF
+
+   src_pr = 169 + pal_id
+
+-- --------------------------------------------------------------------
+-- COPY SOURCE PR TO PR[180]
+-- --------------------------------------------------------------------
+-- GET_POS_REG is a function; it must be assigned to p_data
+   p_data = GET_POS_REG(src_pr, status)
+
+   IF (status = 0) THEN
+      SET_POS_REG(180, p_data, status)
+   ELSE
+      WRITE('FAILED TO READ PR[', src_pr, ']', CR)
+      RETURN
+   ENDIF
+
+-- --------------------------------------------------------------------
+-- SET COMMENT FOR PR[180]
+-- --------------------------------------------------------------------
+-- Signature: (Index, String, Status_Variable)
+   comment = 'ACTIVE PALLET ORIGIN'
+   SET_PREG_CMT(180, comment, status)
+
+-- --------------------------------------------------------------------
+-- SUCCESS MESSAGE
+-- --------------------------------------------------------------------
+   WRITE('PR[180] UPDATED FROM PR[', src_pr, ']', CR)
+
+END GN_RED_PO_F9

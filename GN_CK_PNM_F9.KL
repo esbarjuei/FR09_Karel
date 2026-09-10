@@ -1,0 +1,60 @@
+PROGRAM GN_CK_PNM_F9
+%COMMENT = 'Check Parts Count vs Pallet Slots'
+%NOLOCKGROUP
+%NOPAUSE = ERROR + COMMAND + TPENABLE
+
+%ENVIRONMENT REGOPE
+%ENVIRONMENT STRNG
+%ENVIRONMENT SYSDEF
+
+CONST
+   -- Input Registers
+   R_PLT_SLT = 427
+   R_PRT_CNT = 404
+
+   -- Status String Register
+   SR_STATUS = 44
+
+VAR
+   pallet_slots : INTEGER
+   part_count   : INTEGER
+
+   r_val         : REAL
+   status        : INTEGER
+   dummy         : INTEGER
+
+BEGIN
+
+   ------------------------------------------------------------------
+   -- READ REGISTERS
+   ------------------------------------------------------------------
+   GET_REG(R_PLT_SLT, FALSE, pallet_slots, r_val, status)
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STATUS, 'ERROR READING PALLET SLOTS', dummy)
+      WRITE('ERROR READING R[427]', CR)
+      RETURN
+   ENDIF
+
+   GET_REG(R_PRT_CNT, FALSE, part_count, r_val, status)
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STATUS, 'ERROR READING PART COUNT', dummy)
+      WRITE('ERROR READING R[404]', CR)
+      RETURN
+   ENDIF
+
+   ------------------------------------------------------------------
+   -- COMPARE VALUES
+   ------------------------------------------------------------------
+   IF (part_count > 0) AND (part_count <= pallet_slots) THEN
+
+      SET_STR_REG(SR_STATUS, 'OK', dummy)
+      WRITE('NUMBER OF PARTS IS OK', CR)
+
+   ELSE
+
+      SET_STR_REG(SR_STATUS, 'INVALID PALLET SLOTS', dummy)
+      WRITE('INVALID PALLET SLOTS', CR)
+
+   ENDIF
+
+END GN_CK_PNM_F9

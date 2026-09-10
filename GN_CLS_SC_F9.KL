@@ -1,0 +1,10 @@
+PROGRAM GN_CLS_SC_F9
+%COMMENT = 'ID Setup V3'
+%NOLOCKGROUP
+%NOPAUSE = ERROR + COMMAND + TPENABLE
+
+BEGIN
+  -- Clear Teach Pendant user display
+  WRITE(CHR(128), CHR(137))
+  
+END GN_CLS_SC_F9

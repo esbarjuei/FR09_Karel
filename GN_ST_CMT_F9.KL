@@ -1,0 +1,42 @@
+PROGRAM GN_ST_CMT_F9
+
+%COMMENT = 'Put Comment on Pallet Origins'
+%NOLOCKGROUP
+%NOPAUSE = ERROR + COMMAND + TPENABLE
+
+%ENVIRONMENT REGOPE
+%ENVIRONMENT STRNG
+
+VAR
+   stat : INTEGER
+   txt  : STRING[32]
+
+BEGIN
+
+   -------------------------------------------------------
+   -- Update Position Register Comments
+   -------------------------------------------------------
+
+   txt = 'Pallet01 Origin'
+   SET_REG_CMT(170, txt, stat)
+
+   txt = 'Pallet02 Origin'
+   SET_REG_CMT(171, txt, stat)
+
+   txt = 'Pallet03 Origin'
+   SET_REG_CMT(172, txt, stat)
+
+   txt = 'Pallet04 Origin'
+   SET_REG_CMT(173, txt, stat)
+
+   txt = 'Pallet05 Origin'
+   SET_REG_CMT(174, txt, stat)
+
+   -------------------------------------------------------
+   -- Confirmation
+   -------------------------------------------------------
+   WRITE('PR comments updated', CR)
+
+   DELAY 1000
+
+END GN_ST_CMT_F9

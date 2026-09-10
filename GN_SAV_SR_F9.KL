@@ -1,0 +1,41 @@
+PROGRAM GN_SAV_SR_F9
+
+%NOLOCKGROUP
+%NOPAUSE = ERROR + COMMAND + TPENABLE
+
+%ENVIRONMENT REGOPE
+%ENVIRONMENT STRNG
+%ENVIRONMENT SYSDEF
+
+VAR
+   reg_val : INTEGER
+   r_val   : REAL
+   status  : INTEGER
+
+BEGIN
+
+   -- Read R[100] properly using KAREL function
+   GET_REG(100, FALSE, reg_val, r_val, status)
+
+   IF status <> 0 THEN
+      SET_STR_REG(46, 'READ_ERROR', status)
+      RETURN
+   ENDIF
+
+   -- Logic using nested IF (NO ELSEIF allowed)
+
+   IF reg_val = 0 THEN
+      SET_STR_REG(46, 'UNKNOWN', status)
+   ELSE
+      IF reg_val = 1 THEN
+         SET_STR_REG(46, 'AUTO', status)
+      ELSE
+         IF reg_val = 2 THEN
+            SET_STR_REG(46, 'MANUAL', status)
+         ELSE
+            SET_STR_REG(46, 'INVALID', status)
+         ENDIF
+      ENDIF
+   ENDIF
+
+END GN_SAV_SR_F9

@@ -1,0 +1,162 @@
+PROGRAM GN_CK_EOT_F9
+%COMMENT = 'Search EOAT (ID -> R[500..599])'
+%NOLOCKGROUP
+%NOPAUSE = ERROR + COMMAND + TPENABLE
+
+CONST
+
+   REG_IN_ID = 402
+
+   DB_BASE   = 500
+   DB_STRIDE = 5
+   DB_ITEMS  = 20
+
+   OFF_ID    = 0
+   OFF_JAW   = 1
+   OFF_MTG   = 2
+   OFF_LD_ER = 3
+   OFF_UN_ER = 4
+
+   REG_O_JAW = 416
+   REG_O_MTG = 417
+   REG_O_LD  = 418
+   REG_O_UN  = 419
+
+   SR_STAT   = 42
+
+VAR
+
+   in_id      : INTEGER
+   db_id      : INTEGER
+   base_reg   : INTEGER
+   cur_base   : INTEGER
+   status     : INTEGER
+   dummy      : INTEGER
+   i          : INTEGER
+   found      : BOOLEAN
+
+   i_val      : INTEGER
+   r_val      : REAL
+
+   jaw_hgt    : REAL
+   mtg_blk    : REAL
+
+BEGIN
+
+   base_reg = 0
+   found = FALSE
+
+   SET_STR_REG(SR_STAT,'SEARCHING',dummy)
+
+   -- Read EOAT ID
+   GET_REG(REG_IN_ID,FALSE,in_id,r_val,status)
+
+   IF (status <> 0) OR (in_id <= 0) THEN
+      WRITE(CHR(128),CHR(137))
+      WRITE('ERROR: INVALID EOAT ID',CR)
+      SET_STR_REG(SR_STAT,'INVALID',dummy)
+      RETURN
+   ENDIF
+
+   WRITE(CHR(128),CHR(137))
+   WRITE('SEARCHING EOAT ID: ',in_id,CR)
+
+   -- Search database
+   FOR i = 1 TO DB_ITEMS DO
+
+      IF NOT found THEN
+
+         cur_base = DB_BASE + ((i-1)*DB_STRIDE)
+
+         GET_REG(cur_base + OFF_ID,
+                 FALSE,
+                 db_id,
+                 r_val,
+                 status)
+
+         IF (status = 0) AND (db_id = in_id) THEN
+            base_reg = cur_base
+            found = TRUE
+         ENDIF
+
+      ENDIF
+
+   ENDFOR
+
+   IF NOT found THEN
+      WRITE('ERROR: EOAT NOT FOUND',CR)
+      SET_STR_REG(SR_STAT,'NOT_FOUND',dummy)
+      RETURN
+   ENDIF
+
+   WRITE('MATCH FOUND AT R[',base_reg,']',CR)
+
+   -- Jaw Height (REAL)
+   GET_REG(base_reg + OFF_JAW,
+           TRUE,
+           i_val,
+           jaw_hgt,
+           status)
+
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STAT,'READ_ERR',dummy)
+      RETURN
+   ENDIF
+
+   SET_REAL_REG(REG_O_JAW,jaw_hgt,status)
+
+   -- Mounting Block (REAL)
+   GET_REG(base_reg + OFF_MTG,
+           TRUE,
+           i_val,
+           mtg_blk,
+           status)
+
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STAT,'READ_ERR',dummy)
+      RETURN
+   ENDIF
+
+   SET_REAL_REG(REG_O_MTG,mtg_blk,status)
+
+   -- Load OD/ID (INTEGER)
+   GET_REG(base_reg + OFF_LD_ER,
+           FALSE,
+           i_val,
+           r_val,
+           status)
+
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STAT,'READ_ERR',dummy)
+      RETURN
+   ENDIF
+
+   SET_INT_REG(REG_O_LD,i_val,status)
+
+   -- Unload OD/ID (INTEGER)
+   GET_REG(base_reg + OFF_UN_ER,
+           FALSE,
+           i_val,
+           r_val,
+           status)
+
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STAT,'READ_ERR',dummy)
+      RETURN
+   ENDIF
+
+   SET_INT_REG(REG_O_UN,i_val,status)
+
+   -- Register comments
+   SET_REG_CMT(REG_O_JAW,'Jaw Height mm',dummy)
+   SET_REG_CMT(REG_O_MTG,'Mount Block mm',dummy)
+   SET_REG_CMT(REG_O_LD,'Load OD-ID',dummy)
+   SET_REG_CMT(REG_O_UN,'Unload OD-ID',dummy)
+
+   SET_STR_REG(SR_STAT,'OK',dummy)
+
+   WRITE('EOAT DATA LOADED TO R[416-419]',CR)
+
+   DELAY(3000)
+
+END GN_CK_EOT_F9

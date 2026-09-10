@@ -1,0 +1,89 @@
+PROGRAM GN_ASK_ID_F9
+%COMMENT = 'ID Setup V3'
+%NOLOCKGROUP
+%NOPAUSE = ERROR + COMMAND + TPENABLE
+%INCLUDE KLEVKEYS
+
+VAR
+  part_id    : INTEGER
+  part_num   : INTEGER
+  eoat_id    : INTEGER
+  pallet_id  : INTEGER
+  i_status   : INTEGER
+  tmp_cmt    : STRING[16]
+
+---------------------------------------------------------
+-- Helper Routine: Update Register Value + Comment
+---------------------------------------------------------
+ROUTINE update_reg(reg_idx : INTEGER; reg_val : INTEGER; reg_name : STRING)
+BEGIN
+
+  -- Set Register Comment (Name)
+  SET_REG_CMT(reg_idx, reg_name, i_status)
+
+  IF i_status <> 0 THEN
+    WRITE('Error setting comment for R[', reg_idx, ']', CR)
+    RETURN
+  ENDIF
+
+  -- Set Register Integer Value
+  SET_INT_REG(reg_idx, reg_val, i_status)
+
+  IF i_status <> 0 THEN
+    WRITE('Error setting value for R[', reg_idx, ']', CR)
+  ENDIF
+
+END update_reg
+
+---------------------------------------------------------
+-- Main Program
+---------------------------------------------------------
+BEGIN
+
+  -------------------------------------------------------
+  -- Clear Teach Pendant Screen
+  -------------------------------------------------------
+  WRITE(CHR(128), CHR(137))
+  FORCE_SPMENU(TP_PANEL, SPI_TPUSER, 1)
+
+  -------------------------------------------------------
+  -- Operator Input Section
+  -------------------------------------------------------
+  WRITE('========================', CR)
+  WRITE('      ID SETUP MENU      ', CR)
+  WRITE('========================', CR)
+
+  WRITE('Enter PART ID:', CR)
+  READ(part_id)
+
+  WRITE('Enter EOAT ID:', CR)
+  READ(eoat_id)
+
+  WRITE('Enter PALLET ID:', CR)
+  READ(pallet_id)
+
+  WRITE('Enter NUMBER OF PARTS:', CR)
+  READ(part_num)
+
+  -------------------------------------------------------
+  -- Update Robot Registers (R[401] - R[404])
+  -------------------------------------------------------
+  update_reg(401, part_id,   'Part ID')
+  update_reg(402, eoat_id,   'EOAT ID')
+  update_reg(403, pallet_id, 'Pallet ID')
+  update_reg(404, part_num,  'Part Count')
+
+  -------------------------------------------------------
+  -- Final Confirmation Screen
+  -------------------------------------------------------
+  WRITE(CHR(128), CHR(137))
+  WRITE('Data Saved Successfully!', CR)
+  WRITE('Updated Registers:', CR)
+  WRITE('R[401] Part ID     = ', part_id, CR)
+  WRITE('R[402] EOAT ID     = ', eoat_id, CR)
+  WRITE('R[403] Pallet ID   = ', pallet_id, CR)
+  WRITE('R[404] Part Count  = ', part_num, CR)
+
+  DELAY 3000
+
+END GN_ASK_ID_F9

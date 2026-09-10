@@ -1,0 +1,387 @@
+PROGRAM GN_CK_PRT_F9
+%COMMENT = 'Search Cylinder Part (ID -> R[300..399])'
+%NOLOCKGROUP
+%NOPAUSE = ERROR + COMMAND + TPENABLE
+
+%ENVIRONMENT REGOPE
+%ENVIRONMENT STRNG
+%ENVIRONMENT SYSDEF
+
+CONST
+
+   -- ================================================================
+   -- INPUT
+   -- ================================================================
+
+   REG_IN_ID     = 401
+
+
+   -- ================================================================
+   -- PART DATABASE
+   -- ================================================================
+
+   DB_BASE       = 300
+   DB_STRIDE     = 5
+   DB_PARTS      = 20
+
+
+   -- ================================================================
+   -- OFFSETS
+   -- ================================================================
+
+   OFF_ID        = 0
+   OFF_HGT       = 1
+   OFF_OD        = 2
+   OFF_IDDIA     = 3
+   OFF_WGT       = 4
+
+
+   -- ================================================================
+   -- OUTPUT REGISTERS
+   -- ================================================================
+
+   REG_O_HGT     = 410
+   REG_O_OD      = 411
+   REG_O_IDDIA   = 412
+   REG_O_WGT     = 413
+
+
+   -- ================================================================
+   -- STATUS STRING REGISTER
+   -- ================================================================
+
+   SR_STATUS     = 41
+
+
+VAR
+
+   sel_id        : INTEGER
+   db_id         : INTEGER
+
+   i             : INTEGER
+   status        : INTEGER
+   dummy         : INTEGER
+
+   found         : BOOLEAN
+   stop_search   : BOOLEAN
+   real_flag     : BOOLEAN
+
+   base_match    : INTEGER
+
+   r_val         : REAL
+   i_val         : INTEGER
+
+   height        : REAL
+   od            : REAL
+   id_dia        : REAL
+   weight        : REAL
+
+
+BEGIN
+
+   -- ================================================================
+   -- INITIALIZATION
+   -- ================================================================
+
+   found = FALSE
+   stop_search = FALSE
+   base_match = 0
+
+   SET_STR_REG(SR_STATUS, 'SEARCHING PART', dummy)
+
+
+   -- ================================================================
+   -- REGISTER COMMENTS
+   -- ================================================================
+
+   SET_REG_CMT(REG_IN_ID, 'Part ID', status)
+
+   SET_REG_CMT(REG_O_HGT, 'Height [mm]', status)
+   SET_REG_CMT(REG_O_OD, 'OD [mm]', status)
+   SET_REG_CMT(REG_O_IDDIA, 'ID [mm]', status)
+   SET_REG_CMT(REG_O_WGT, 'Weight [kg]', status)
+
+
+   -- ================================================================
+   -- READ INPUT PART ID
+   -- ================================================================
+
+   GET_REG(REG_IN_ID, real_flag, sel_id, r_val, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'INPUT READ ERROR', dummy)
+      WRITE('INPUT READ ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- CONVERT REAL INPUT TO INTEGER IF REQUIRED
+   -- ================================================================
+
+   IF real_flag THEN
+
+      sel_id = TRUNC(r_val)
+
+   ENDIF
+
+
+   -- ================================================================
+   -- CHECK INPUT
+   -- ================================================================
+
+   IF sel_id <= 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'INVALID PART ID', dummy)
+      WRITE('INVALID PART ID', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- SEARCH DATABASE
+   -- ================================================================
+
+   FOR i = 1 TO DB_PARTS DO
+
+      IF NOT stop_search THEN
+
+         db_id = 0
+
+         GET_REG(DB_BASE + ((i - 1) * DB_STRIDE) + OFF_ID, real_flag, db_id, r_val, status)
+
+         IF status <> 0 THEN
+
+            SET_STR_REG(SR_STATUS, 'DB READ ERROR', dummy)
+            WRITE('DATABASE READ ERROR', CR)
+
+            RETURN
+
+         ENDIF
+
+
+         -- -----------------------------------------------------------
+         -- Convert database ID if it is REAL
+         -- -----------------------------------------------------------
+
+         IF real_flag THEN
+
+            db_id = TRUNC(r_val)
+
+         ENDIF
+
+
+         -- -----------------------------------------------------------
+         -- Compare ID
+         -- -----------------------------------------------------------
+
+         IF db_id = sel_id THEN
+
+            found = TRUE
+
+            base_match = DB_BASE + ((i - 1) * DB_STRIDE)
+
+            stop_search = TRUE
+
+         ENDIF
+
+      ENDIF
+
+   ENDFOR
+
+
+   -- ================================================================
+   -- PART NOT FOUND
+   -- ================================================================
+
+   IF NOT found THEN
+
+      SET_STR_REG(SR_STATUS, 'PART NOT FOUND', dummy)
+      WRITE('PART NOT FOUND', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- READ HEIGHT
+   -- ================================================================
+
+   GET_REG(base_match + OFF_HGT, real_flag, i_val, height, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'HEIGHT READ ERROR', dummy)
+      WRITE('HEIGHT READ ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   IF NOT real_flag THEN
+
+      height = i_val
+
+   ENDIF
+
+
+   -- ================================================================
+   -- READ OUTER DIAMETER
+   -- ================================================================
+
+   GET_REG(base_match + OFF_OD, real_flag, i_val, od, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'OD READ ERROR', dummy)
+      WRITE('OD READ ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   IF NOT real_flag THEN
+
+      od = i_val
+
+   ENDIF
+
+
+   -- ================================================================
+   -- READ INNER DIAMETER
+   -- ================================================================
+
+   GET_REG(base_match + OFF_IDDIA, real_flag, i_val, id_dia, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'ID READ ERROR', dummy)
+      WRITE('ID READ ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   IF NOT real_flag THEN
+
+      id_dia = i_val
+
+   ENDIF
+
+
+   -- ================================================================
+   -- READ WEIGHT
+   -- ================================================================
+
+   GET_REG(base_match + OFF_WGT, real_flag, i_val, weight, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'WEIGHT READ ERROR', dummy)
+      WRITE('WEIGHT READ ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   IF NOT real_flag THEN
+
+      weight = i_val
+
+   ENDIF
+
+
+   -- ================================================================
+   -- WRITE HEIGHT
+   -- ================================================================
+
+   SET_REAL_REG(REG_O_HGT, height, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'HEIGHT WRITE ERROR', dummy)
+      WRITE('HEIGHT WRITE ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- WRITE OD
+   -- ================================================================
+
+   SET_REAL_REG(REG_O_OD, od, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'OD WRITE ERROR', dummy)
+      WRITE('OD WRITE ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- WRITE ID
+   -- ================================================================
+
+   SET_REAL_REG(REG_O_IDDIA, id_dia, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'ID WRITE ERROR', dummy)
+      WRITE('ID WRITE ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- WRITE WEIGHT
+   -- ================================================================
+
+   SET_REAL_REG(REG_O_WGT, weight, status)
+
+   IF status <> 0 THEN
+
+      SET_STR_REG(SR_STATUS, 'WEIGHT WRITE ERROR', dummy)
+      WRITE('WEIGHT WRITE ERROR', CR)
+
+      RETURN
+
+   ENDIF
+
+
+   -- ================================================================
+   -- SUCCESS
+   -- ================================================================
+
+   SET_STR_REG(SR_STATUS, 'OK', dummy)
+
+   WRITE('CYLINDER PART DATA LOADED SUCCESSFULLY', CR)
+
+   WRITE('PART ID = ', sel_id, CR)
+
+   WRITE('HEIGHT = ', height, CR)
+
+   WRITE('OD = ', od, CR)
+
+   WRITE('ID = ', id_dia, CR)
+
+   WRITE('WEIGHT = ', weight, CR)
+
+
+END GN_CK_PRT_F9
