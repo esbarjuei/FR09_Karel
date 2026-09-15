@@ -34,7 +34,7 @@ AUTO_SINGULARITY_HEADER;
    8:  PR[190:INFEED POSITION TOP] = LPOS ;
    9:  PR[190,1] = PR[180,1] ;
   10:  PR[190,2] = PR[180,2] ;
-  11:  R[169:TMP] = R[410:Part Height (mm)]*3 ;
+  11:  R[169:TMP] = R[410:Part Height (mm)]*1.5 ;
   12:  PR[190,3] = R[169:TMP] ;
   13:  ! PR[190,4] = PR[180,4] ;
   14:  ! PR[190,5] = PR[180,5] ;
