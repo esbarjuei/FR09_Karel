@@ -2,33 +2,40 @@ PROGRAM GN_SET_RG_F9
 %COMMENT = 'Set Registers'
 %NOLOCKGROUP
 %NOPAUSE = ERROR + COMMAND + TPENABLE
+%ENVIRONMENT REGOPE
 
 VAR
-  status  : INTEGER
-  msg_ok  : STRING[20]
-  msg_nan : STRING[20]
+    status  : INTEGER
+    msg_ok  : STRING[20]
+    msg_nan : STRING[20]
 
 BEGIN
-  -- 1. Initialize string values
-  msg_ok = 'OK'
-  msg_nan = 'NAN'
-  
-  -- 2. Set the Register Comments (Labels)
-  -- This makes them identifiable on the iPendant
-  SET_SREG_CMT(40, 'Status Result', status)
-  SET_SREG_CMT(41, 'PART Status', status)
-  SET_SREG_CMT(42, 'EOAT Status', status)
-  SET_SREG_CMT(43, 'PALLET Status', status)
-  SET_SREG_CMT(44, 'PRT_Num Status', status)
-  
-  -- 3. Set the Register Values
-  SET_STR_REG(40, msg_ok, status)
-  SET_STR_REG(41, msg_nan, status)
-  SET_STR_REG(42, msg_nan, status)
-  SET_STR_REG(43, msg_nan, status)
-  SET_STR_REG(44, msg_nan, status)
+    -- 1. Initialize string values
+    msg_ok = 'OK'
+    msg_nan = 'NAN'
 
-    -- 4. Brief pause
-  DELAY(1000) 
+    -- 2. Set string register comments
+    SET_SREG_CMT(40, 'Status Result', status)
+    SET_SREG_CMT(41, 'PART Status', status)
+    SET_SREG_CMT(42, 'EOAT Status', status)
+    SET_SREG_CMT(43, 'PALLET Status', status)
+    SET_SREG_CMT(44, 'PRT_Num Status', status)
+
+    -- 3. Set string register values
+    SET_STR_REG(40, msg_ok, status)
+    SET_STR_REG(41, msg_nan, status)
+    SET_STR_REG(42, msg_nan, status)
+    SET_STR_REG(43, msg_nan, status)
+    SET_STR_REG(44, msg_nan, status)
+
+    -- 4. Set numeric register comments and values
+    SET_REG_CMT(70, 'Job_SELC', status)
+    SET_REG_CMT(71, 'Use_Pst_Dat', status)
+
+    SET_INT_REG(70, 99990, status)
+    SET_INT_REG(71, 99990, status)
+
+    -- 5. Pause for one second
+    DELAY(1000)
 
 END GN_SET_RG_F9
