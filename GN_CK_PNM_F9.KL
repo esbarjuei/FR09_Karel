@@ -1,5 +1,6 @@
 PROGRAM GN_CK_PNM_F9
-%COMMENT = 'Check Parts Count vs Pallet Slots'
+
+%COMMENT = 'Check Parts vs Pallet Slots'
 %NOLOCKGROUP
 %NOPAUSE = ERROR + COMMAND + TPENABLE
 
@@ -8,53 +9,94 @@ PROGRAM GN_CK_PNM_F9
 %ENVIRONMENT SYSDEF
 
 CONST
-   -- Input Registers
+   -- Input registers
    R_PLT_SLT = 427
    R_PRT_CNT = 404
 
-   -- Status String Register
+   -- Status string register
    SR_STATUS = 44
 
 VAR
    pallet_slots : INTEGER
    part_count   : INTEGER
 
-   r_val         : REAL
-   status        : INTEGER
-   dummy         : INTEGER
+   is_real      : BOOLEAN
+   i_val        : INTEGER
+   r_val        : REAL
+   status       : INTEGER
+   dummy        : INTEGER
 
 BEGIN
 
-   ------------------------------------------------------------------
-   -- READ REGISTERS
-   ------------------------------------------------------------------
-   GET_REG(R_PLT_SLT, FALSE, pallet_slots, r_val, status)
+   SET_STR_REG(SR_STATUS,'CHECKING PART COUNT',dummy)
+
+   -- Read pallet slots
+   GET_REG(R_PLT_SLT,is_real,i_val,r_val,status)
+
    IF status <> 0 THEN
-      SET_STR_REG(SR_STATUS, 'ERROR READING PALLET SLOTS', dummy)
-      WRITE('ERROR READING R[427]', CR)
+      SET_STR_REG(SR_STATUS,'ERROR READING PALLET SLOTS',dummy)
+      WRITE('ERROR READING R[427]',CR)
       RETURN
    ENDIF
 
-   GET_REG(R_PRT_CNT, FALSE, part_count, r_val, status)
-   IF status <> 0 THEN
-      SET_STR_REG(SR_STATUS, 'ERROR READING PART COUNT', dummy)
-      WRITE('ERROR READING R[404]', CR)
-      RETURN
-   ENDIF
+   IF is_real THEN
+      IF r_val <= 0 THEN
+         SET_STR_REG(SR_STATUS,'INVALID PALLET SLOTS',dummy)
+         RETURN
+      ENDIF
 
-   ------------------------------------------------------------------
-   -- COMPARE VALUES
-   ------------------------------------------------------------------
-   IF (part_count > 0) AND (part_count <= pallet_slots) THEN
+      IF r_val <> TRUNC(r_val) THEN
+         SET_STR_REG(SR_STATUS,'PALLET SLOTS NOT INTEGER',dummy)
+         RETURN
+      ENDIF
 
-      SET_STR_REG(SR_STATUS, 'OK', dummy)
-      WRITE('NUMBER OF PARTS IS OK', CR)
-
+      pallet_slots = TRUNC(r_val)
    ELSE
+      pallet_slots = i_val
+   ENDIF
 
-      SET_STR_REG(SR_STATUS, 'INVALID PALLET SLOTS', dummy)
-      WRITE('INVALID PALLET SLOTS', CR)
+   IF pallet_slots <= 0 THEN
+      SET_STR_REG(SR_STATUS,'INVALID PALLET SLOTS',dummy)
+      RETURN
+   ENDIF
 
+   -- Read requested part count
+   GET_REG(R_PRT_CNT,is_real,i_val,r_val,status)
+
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STATUS,'ERROR READING PART COUNT',dummy)
+      WRITE('ERROR READING R[404]',CR)
+      RETURN
+   ENDIF
+
+   IF is_real THEN
+      IF r_val <= 0 THEN
+         SET_STR_REG(SR_STATUS,'INVALID PART COUNT',dummy)
+         RETURN
+      ENDIF
+
+      IF r_val <> TRUNC(r_val) THEN
+         SET_STR_REG(SR_STATUS,'PART COUNT NOT INTEGER',dummy)
+         RETURN
+      ENDIF
+
+      part_count = TRUNC(r_val)
+   ELSE
+      part_count = i_val
+   ENDIF
+
+   IF part_count <= 0 THEN
+      SET_STR_REG(SR_STATUS,'INVALID PART COUNT',dummy)
+      RETURN
+   ENDIF
+
+   -- Compare part count against pallet capacity
+   IF part_count <= pallet_slots THEN
+      SET_STR_REG(SR_STATUS,'OK',dummy)
+      WRITE('NUMBER OF PARTS IS OK',CR)
+   ELSE
+      SET_STR_REG(SR_STATUS,'PART COUNT EXCEEDS SLOTS',dummy)
+      WRITE('PART COUNT EXCEEDS PALLET SLOTS',CR)
    ENDIF
 
 END GN_CK_PNM_F9

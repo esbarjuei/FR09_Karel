@@ -1,6 +1,6 @@
 PROGRAM GN_CK_PAL_F9
 
-%COMMENT = 'Search PALLET (ID -> Output Registers)'
+%COMMENT = 'Read 5 pallets / 3 origins'
 %NOLOCKGROUP
 %NOPAUSE = ERROR + COMMAND + TPENABLE
 
@@ -9,170 +9,186 @@ PROGRAM GN_CK_PAL_F9
 %ENVIRONMENT SYSDEF
 
 CONST
-   -- Input
-   REG_IN_ID   = 403
+   REG_IN_ID = 403
 
-   -- Database
-   DB_BASE     = 600
-   DB_STRIDE   = 10
-   DB_ITEMS    = 5
+   DB_BASE   = 600
+   DB_STRIDE = 16
+   DB_ITEMS  = 5
 
-   -- Offsets
-   OFF_ID      = 0
-   OFF_ROWS    = 1
-   OFF_COLS    = 2
-   OFF_RDIST   = 3
-   OFF_CDIST   = 4
-   OFF_HGT     = 5
-   OFF_SLTS    = 6
-   OFF_XORG    = 7
-   OFF_YORG    = 8
-   OFF_ZORG    = 9
+   OUT_BASE  = 422
+   DATA_CNT  = 15
 
-   -- Output registers
-   REG_O_ROWS  = 422
-   REG_O_COLS  = 423
-   REG_O_RDIST = 424
-   REG_O_CDIST = 425
-   REG_O_HGT   = 426
-   REG_O_SLTS  = 427
-
-   REG_O_XORG  = 428
-   REG_O_YORG  = 429
-   REG_O_ZORG  = 430
-
-   -- Status
-   SR_STAT     = 43
+   SR_STAT   = 43
 
 VAR
-   sel_id      : INTEGER
-   db_id       : INTEGER
+   sel_id     : REAL
+   db_id      : REAL
 
-   i           : INTEGER
-   status      : INTEGER
-   dummy       : INTEGER
+   i          : INTEGER
+   j          : INTEGER
+   status     : INTEGER
+   dummy      : INTEGER
+   base_match : INTEGER
 
-   found       : BOOLEAN
-   stop_search : BOOLEAN
-   base_match  : INTEGER
+   found      : BOOLEAN
+   is_real    : BOOLEAN
 
-   r_val       : REAL
-   i_val       : INTEGER
+   i_val      : INTEGER
+   r_val      : REAL
 
-   rows_i      : INTEGER
-   cols_i      : INTEGER
-   slots_i     : INTEGER
-
-   rdist       : REAL
-   cdist       : REAL
-   height      : REAL
-
-   xorg        : REAL
-   yorg        : REAL
-   zorg        : REAL
+   data_r     : ARRAY[15] OF REAL
+   data_i     : ARRAY[15] OF INTEGER
 
 BEGIN
 
-   ------------------------------------------------------------------
-   -- INIT
-   ------------------------------------------------------------------
    found = FALSE
-   stop_search = FALSE
    base_match = 0
 
-   SET_STR_REG(SR_STAT,'SEARCHING PALLET',dummy)
+   -- Default result until a matching ID is found
+   SET_STR_REG(SR_STAT,'NOT FOUND',dummy)
 
-   ------------------------------------------------------------------
-   -- INPUT REGISTER COMMENT
-   ------------------------------------------------------------------
-   SET_REG_CMT(REG_IN_ID,'PALLET_ID [unitless]',status)
+   -- Register comments
+   SET_REG_CMT(REG_IN_ID,'PALLET_ID',status)
 
-   ------------------------------------------------------------------
-   -- OUTPUT REGISTER COMMENTS
-   ------------------------------------------------------------------
-   SET_REG_CMT(REG_O_ROWS,  'PALLET_ROWS [-]', status)
-   SET_REG_CMT(REG_O_COLS,  'PALLET_COLS [-]', status)
-   SET_REG_CMT(REG_O_SLTS,  'PALLET_SLOTS [-]', status)
+   SET_REG_CMT(422,'PALLET_ROWS',status)
+   SET_REG_CMT(423,'PALLET_COLS',status)
+   SET_REG_CMT(424,'ROW_PITCH [mm]',status)
+   SET_REG_CMT(425,'COL_PITCH [mm]',status)
+   SET_REG_CMT(426,'LAYER_HEIGHT [mm]',status)
+   SET_REG_CMT(427,'PALLET_SLOTS',status)
 
-   SET_REG_CMT(REG_O_RDIST, 'ROW_PITCH [mm]', status)
-   SET_REG_CMT(REG_O_CDIST, 'COL_PITCH [mm]', status)
-   SET_REG_CMT(REG_O_HGT,   'LAYER_HEIGHT [mm]', status)
+   SET_REG_CMT(428,'T1X_ORG [mm]',status)
+   SET_REG_CMT(429,'T1Y_ORG [mm]',status)
+   SET_REG_CMT(430,'T1Z_ORG [mm]',status)
 
-   SET_REG_CMT(REG_O_XORG,  'PALLET_ORIGIN_X [mm]', status)
-   SET_REG_CMT(REG_O_YORG,  'PALLET_ORIGIN_Y [mm]', status)
-   SET_REG_CMT(REG_O_ZORG,  'PALLET_ORIGIN_Z [mm]', status)
+   SET_REG_CMT(431,'T2X_ORG [mm]',status)
+   SET_REG_CMT(432,'T2Y_ORG [mm]',status)
+   SET_REG_CMT(433,'T2Z_ORG [mm]',status)
 
-   ------------------------------------------------------------------
-   -- READ INPUT ID
-   ------------------------------------------------------------------
-   GET_REG(REG_IN_ID, FALSE, sel_id, r_val, status)
+   SET_REG_CMT(434,'T3X_ORG [mm]',status)
+   SET_REG_CMT(435,'T3Y_ORG [mm]',status)
+   SET_REG_CMT(436,'T3Z_ORG [mm]',status)
 
-   IF (status <> 0) OR (sel_id <= 0) THEN
-      SET_STR_REG(SR_STAT,'INVALID PALLET ID',dummy)
+   -- Read requested pallet ID
+   GET_REG(REG_IN_ID,is_real,i_val,r_val,status)
+
+   IF status <> 0 THEN
+      WRITE('INPUT READ ERROR',CR)
       RETURN
    ENDIF
 
-   ------------------------------------------------------------------
-   -- SEARCH DATABASE (FANUC SAFE LOOP)
-   ------------------------------------------------------------------
+   IF is_real THEN
+      sel_id = r_val
+   ELSE
+      sel_id = i_val
+   ENDIF
+
+   IF sel_id <= 0 THEN
+      WRITE('INVALID PALLET ID',CR)
+      RETURN
+   ENDIF
+
+   IF sel_id <> TRUNC(sel_id) THEN
+      WRITE('INVALID PALLET ID',CR)
+      RETURN
+   ENDIF
+
+   -- Search bases: 600, 616, 632, 648, 664
    FOR i = 1 TO DB_ITEMS DO
+      IF NOT found THEN
 
-      IF stop_search = FALSE THEN
+         GET_REG(DB_BASE + ((i-1) * DB_STRIDE),
+                 is_real,i_val,r_val,status)
 
-         GET_REG(DB_BASE + ((i-1) * DB_STRIDE) + OFF_ID,
-                 FALSE, db_id, r_val, status)
+         -- Skip unreadable records and continue searching
+         IF status = 0 THEN
 
-         IF (status = 0) AND (db_id = sel_id) THEN
-            found = TRUE
-            base_match = DB_BASE + ((i-1) * DB_STRIDE)
-            stop_search = TRUE
+            IF is_real THEN
+               db_id = r_val
+            ELSE
+               db_id = i_val
+            ENDIF
+
+            IF db_id = sel_id THEN
+               found = TRUE
+               base_match = DB_BASE + ((i-1) * DB_STRIDE)
+            ENDIF
+
+         ELSE
+            WRITE('DATABASE ID READ ERROR',CR)
          ENDIF
 
+      ENDIF
+   ENDFOR
+
+   IF NOT found THEN
+      WRITE('PALLET ID NOT FOUND',CR)
+      RETURN
+   ENDIF
+
+   -- ID found: keep this result even if data loading fails
+   SET_STR_REG(SR_STAT,'OK',dummy)
+
+   -- Read all fields before writing outputs
+   FOR j = 1 TO DATA_CNT DO
+
+      GET_REG(base_match + j,
+              is_real,i_val,r_val,status)
+
+      IF status <> 0 THEN
+         WRITE('DATA READ ERROR',CR)
+         RETURN
+      ENDIF
+
+      -- Rows, columns and slots must be whole numbers
+      IF (j = 1) OR (j = 2) OR (j = 6) THEN
+
+         IF is_real THEN
+            IF r_val < 0 THEN
+               WRITE('INVALID PALLET COUNT',CR)
+               RETURN
+            ENDIF
+
+            IF r_val <> TRUNC(r_val) THEN
+               WRITE('INVALID PALLET COUNT',CR)
+               RETURN
+            ENDIF
+
+            data_i[j] = TRUNC(r_val)
+         ELSE
+            IF i_val < 0 THEN
+               WRITE('INVALID PALLET COUNT',CR)
+               RETURN
+            ENDIF
+
+            data_i[j] = i_val
+         ENDIF
+
+      ELSE
+         IF is_real THEN
+            data_r[j] = r_val
+         ELSE
+            data_r[j] = i_val
+         ENDIF
       ENDIF
 
    ENDFOR
 
-   IF NOT found THEN
-      SET_STR_REG(SR_STAT,'NOT FOUND',dummy)
-      RETURN
-   ENDIF
+   -- Write selected pallet data to R[422]..R[436]
+   FOR j = 1 TO DATA_CNT DO
 
-   ------------------------------------------------------------------
-   -- READ DATA
-   ------------------------------------------------------------------
-   GET_REG(base_match + OFF_ROWS,  FALSE, rows_i,  r_val, status)
-   GET_REG(base_match + OFF_COLS,  FALSE, cols_i,  r_val, status)
-   GET_REG(base_match + OFF_SLTS,  FALSE, slots_i, r_val, status)
+      IF (j = 1) OR (j = 2) OR (j = 6) THEN
+         SET_INT_REG(OUT_BASE + j - 1,data_i[j],status)
+      ELSE
+         SET_REAL_REG(OUT_BASE + j - 1,data_r[j],status)
+      ENDIF
 
-   GET_REG(base_match + OFF_RDIST, TRUE,  i_val, rdist, status)
-   GET_REG(base_match + OFF_CDIST, TRUE,  i_val, cdist, status)
-   GET_REG(base_match + OFF_HGT,   TRUE,  i_val, height, status)
+      IF status <> 0 THEN
+         WRITE('OUTPUT WRITE ERROR',CR)
+         RETURN
+      ENDIF
 
-   GET_REG(base_match + OFF_XORG,  TRUE,  i_val, xorg, status)
-   GET_REG(base_match + OFF_YORG,  TRUE,  i_val, yorg, status)
-   GET_REG(base_match + OFF_ZORG,  TRUE,  i_val, zorg, status)
-
-   IF status <> 0 THEN
-      SET_STR_REG(SR_STAT,'DATA READ ERROR',dummy)
-      RETURN
-   ENDIF
-
-   ------------------------------------------------------------------
-   -- WRITE OUTPUT REGISTERS
-   ------------------------------------------------------------------
-   SET_INT_REG(REG_O_ROWS, rows_i, status)
-   SET_INT_REG(REG_O_COLS, cols_i, status)
-   SET_INT_REG(REG_O_SLTS, slots_i, status)
-
-   SET_REAL_REG(REG_O_RDIST, rdist, status)
-   SET_REAL_REG(REG_O_CDIST, cdist, status)
-   SET_REAL_REG(REG_O_HGT,   height, status)
-
-   SET_REAL_REG(REG_O_XORG, xorg, status)
-   SET_REAL_REG(REG_O_YORG, yorg, status)
-   SET_REAL_REG(REG_O_ZORG, zorg, status)
-
-   SET_STR_REG(SR_STAT,'OK',dummy)
+   ENDFOR
 
    WRITE('PALLET DATA LOADED SUCCESSFULLY',CR)
 
