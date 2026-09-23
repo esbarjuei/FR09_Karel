@@ -32,8 +32,8 @@ BEGIN
     SET_REG_CMT(70, 'Job_SELC', status)
     SET_REG_CMT(71, 'Use_Pst_Dat', status)
 
-    SET_INT_REG(70, 99990, status)
-    SET_INT_REG(71, 99990, status)
+    SET_INT_REG(70, 9990, status)
+    SET_INT_REG(71, 9990, status)
 
     -- 5. Pause for one second
     DELAY(1000)

@@ -31,7 +31,7 @@ DEFAULT_GROUP = *,*,*,*,*;
   15:  R[506:Eoat2_Jaw_hgt_mm]         = 2.0 ;
   16:  R[507:Eoat2_Mtg_blk_mm]         = 2.0 ;
   17:  R[508:Eoat2_Lod_OD<99>_ID<11>]     = 11 ;
-  18:  R[509:Eoat2_unLd_OD<99>_ID<11>]    = 11 ;
+  18:  R[509:Eoat2_unLd_OD<99>_ID<11>]    =11 ;
 
   19:  ! -------- EOAT 3 -------- ;
   20:  R[510:Eoat3_ID]                 = 3 ;
