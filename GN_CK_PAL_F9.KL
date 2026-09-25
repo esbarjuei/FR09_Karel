@@ -1,6 +1,6 @@
 PROGRAM GN_CK_PAL_F9
 
-%COMMENT = 'Read 5 pallets / 3 origins'
+%COMMENT = 'Read 5 pallets / 6 origins'
 %NOLOCKGROUP
 %NOPAUSE = ERROR + COMMAND + TPENABLE
 
@@ -12,11 +12,11 @@ CONST
    REG_IN_ID = 403
 
    DB_BASE   = 600
-   DB_STRIDE = 16
+   DB_STRIDE = 25
    DB_ITEMS  = 5
 
    OUT_BASE  = 422
-   DATA_CNT  = 15
+   DATA_CNT  = 24
 
    SR_STAT   = 43
 
@@ -36,8 +36,8 @@ VAR
    i_val      : INTEGER
    r_val      : REAL
 
-   data_r     : ARRAY[15] OF REAL
-   data_i     : ARRAY[15] OF INTEGER
+   buf24_r     : ARRAY[24] OF REAL
+   buf24_i     : ARRAY[24] OF INTEGER
 
 BEGIN
 
@@ -57,17 +57,29 @@ BEGIN
    SET_REG_CMT(426,'LAYER_HEIGHT [mm]',status)
    SET_REG_CMT(427,'PALLET_SLOTS',status)
 
-   SET_REG_CMT(428,'T1X_ORG [mm]',status)
-   SET_REG_CMT(429,'T1Y_ORG [mm]',status)
-   SET_REG_CMT(430,'T1Z_ORG [mm]',status)
+   SET_REG_CMT(428,'INF1X_ORG [mm]',status)
+   SET_REG_CMT(429,'INF1Y_ORG [mm]',status)
+   SET_REG_CMT(430,'INF1Z_ORG [mm]',status)
 
-   SET_REG_CMT(431,'T2X_ORG [mm]',status)
-   SET_REG_CMT(432,'T2Y_ORG [mm]',status)
-   SET_REG_CMT(433,'T2Z_ORG [mm]',status)
+   SET_REG_CMT(431,'INF2X_ORG [mm]',status)
+   SET_REG_CMT(432,'INF2Y_ORG [mm]',status)
+   SET_REG_CMT(433,'INF2Z_ORG [mm]',status)
 
-   SET_REG_CMT(434,'T3X_ORG [mm]',status)
-   SET_REG_CMT(435,'T3Y_ORG [mm]',status)
-   SET_REG_CMT(436,'T3Z_ORG [mm]',status)
+   SET_REG_CMT(434,'INF3X_ORG [mm]',status)
+   SET_REG_CMT(435,'INF3Y_ORG [mm]',status)
+   SET_REG_CMT(436,'INF3Z_ORG [mm]',status)
+
+   SET_REG_CMT(437,'OTF1X_ORG [mm]',status)
+   SET_REG_CMT(438,'OTF1Y_ORG [mm]',status)
+   SET_REG_CMT(439,'OTF1Z_ORG [mm]',status)
+
+   SET_REG_CMT(440,'OTF2X_ORG [mm]',status)
+   SET_REG_CMT(441,'OTF2Y_ORG [mm]',status)
+   SET_REG_CMT(442,'OTF2Z_ORG [mm]',status)
+
+   SET_REG_CMT(443,'OTF3X_ORG [mm]',status)
+   SET_REG_CMT(444,'OTF3Y_ORG [mm]',status)
+   SET_REG_CMT(445,'OTF3Z_ORG [mm]',status)
 
    -- Read requested pallet ID
    GET_REG(REG_IN_ID,is_real,i_val,r_val,status)
@@ -93,7 +105,7 @@ BEGIN
       RETURN
    ENDIF
 
-   -- Search bases: 600, 616, 632, 648, 664
+   -- Search bases: 600, 625, 650, 675, 700
    FOR i = 1 TO DB_ITEMS DO
       IF NOT found THEN
 
@@ -129,7 +141,7 @@ BEGIN
    -- ID found: keep this result even if data loading fails
    SET_STR_REG(SR_STAT,'OK',dummy)
 
-   -- Read all fields before writing outputs
+   -- Read all 24 fields before writing outputs
    FOR j = 1 TO DATA_CNT DO
 
       GET_REG(base_match + j,
@@ -154,33 +166,33 @@ BEGIN
                RETURN
             ENDIF
 
-            data_i[j] = TRUNC(r_val)
+            buf24_i[j] = TRUNC(r_val)
          ELSE
             IF i_val < 0 THEN
                WRITE('INVALID PALLET COUNT',CR)
                RETURN
             ENDIF
 
-            data_i[j] = i_val
+            buf24_i[j] = i_val
          ENDIF
 
       ELSE
          IF is_real THEN
-            data_r[j] = r_val
+            buf24_r[j] = r_val
          ELSE
-            data_r[j] = i_val
+            buf24_r[j] = i_val
          ENDIF
       ENDIF
 
    ENDFOR
 
-   -- Write selected pallet data to R[422]..R[436]
+   -- Write selected pallet data to R[422]..R[445]
    FOR j = 1 TO DATA_CNT DO
 
       IF (j = 1) OR (j = 2) OR (j = 6) THEN
-         SET_INT_REG(OUT_BASE + j - 1,data_i[j],status)
+         SET_INT_REG(OUT_BASE + j - 1,buf24_i[j],status)
       ELSE
-         SET_REAL_REG(OUT_BASE + j - 1,data_r[j],status)
+         SET_REAL_REG(OUT_BASE + j - 1,buf24_r[j],status)
       ENDIF
 
       IF status <> 0 THEN
