@@ -66,7 +66,7 @@ ENABLE_SINGULARITY_AVOIDANCE : TRUE;
   42:      !3rd: Infeed Height Offset ;
   43:      R[192:Infeed Height Offset]=R[801] ;
   44:      !4th: Outfeed Height Offset ;
-  45:      R[193]=(-46.5) ;
+  45:      R[193:Outfeed_Height_Offset]=R[803] ;
   46:      !--------------------------- ;
   47:      CALL CREATE_REG(R[190],R[191],R[192],R[193]) ;
   48:    ENDIF ;
