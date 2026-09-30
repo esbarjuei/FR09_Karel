@@ -1,5 +1,5 @@
 PROGRAM GN_CK_PRT_F9
-%COMMENT = 'Search Cylinder Part (ID -> R[300..399])'
+%COMMENT = 'Search Cylinder Part (ID -> R[300..389])'
 %NOLOCKGROUP
 %NOPAUSE = ERROR + COMMAND + TPENABLE
 
@@ -21,8 +21,8 @@ CONST
    -- ================================================================
 
    DB_BASE       = 300
-   DB_STRIDE     = 5
-   DB_PARTS      = 20
+   DB_STRIDE     = 6
+   DB_PARTS      = 15
 
 
    -- ================================================================
@@ -34,6 +34,7 @@ CONST
    OFF_OD        = 2
    OFF_IDDIA     = 3
    OFF_WGT       = 4
+   OFF_FIN_HGT   = 5
 
 
    -- ================================================================
@@ -44,6 +45,7 @@ CONST
    REG_O_OD      = 411
    REG_O_IDDIA   = 412
    REG_O_WGT     = 413
+   REG_O_FHGT = 414
 
 
    -- ================================================================
@@ -75,6 +77,7 @@ VAR
    od            : REAL
    id_dia        : REAL
    weight        : REAL
+   fin_height    : REAL
 
 
 BEGIN
@@ -100,6 +103,7 @@ BEGIN
    SET_REG_CMT(REG_O_OD, 'OD [mm]', status)
    SET_REG_CMT(REG_O_IDDIA, 'ID [mm]', status)
    SET_REG_CMT(REG_O_WGT, 'Weight [kg]', status)
+   SET_REG_CMT(REG_O_FHGT, 'Fin Height [mm]', status)
 
 
    -- ================================================================
@@ -302,6 +306,24 @@ BEGIN
 
 
    -- ================================================================
+   -- READ FINISHED HEIGHT
+   -- ================================================================
+
+   GET_REG(base_match + OFF_FIN_HGT,
+           real_flag, i_val, fin_height, status)
+
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STATUS, 'FIN HGT READ ERROR', dummy)
+      WRITE('FINISHED HEIGHT READ ERROR', CR)
+      RETURN
+   ENDIF
+
+   IF NOT real_flag THEN
+      fin_height = i_val
+   ENDIF
+
+
+   -- ================================================================
    -- WRITE HEIGHT
    -- ================================================================
 
@@ -366,6 +388,19 @@ BEGIN
 
 
    -- ================================================================
+   -- WRITE FINISHED HEIGHT
+   -- ================================================================
+
+   SET_REAL_REG(REG_O_FHGT, fin_height, status)
+
+   IF status <> 0 THEN
+      SET_STR_REG(SR_STATUS, 'FIN HGT WRITE ERROR', dummy)
+      WRITE('FINISHED HEIGHT WRITE ERROR', CR)
+      RETURN
+   ENDIF
+
+
+   -- ================================================================
    -- SUCCESS
    -- ================================================================
 
@@ -383,5 +418,9 @@ BEGIN
 
    WRITE('WEIGHT = ', weight, CR)
 
+   WRITE('FINISHED HEIGHT = ', fin_height, CR)
+
 
 END GN_CK_PRT_F9
+
+
